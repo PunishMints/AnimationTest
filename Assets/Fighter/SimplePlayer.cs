@@ -4,30 +4,23 @@ using System.Collections;
 public class SimplePlayer : MonoBehaviour
 {
 
-    Animator animator;
-    Camera playerCamera;
-    CharacterController controller;
+    private Animator animator;
+    public Camera playerCamera;
+    private CharacterController controller;
 
-    float gravity = -9.81f;
+    private float gravity = -9.81f;
     private float verticalSpeed;
 
     public Transform punchTarget;
 
-    float moveSpeed = 10f;
-    float rotateSpeed = 100f;
-    float cameraSpeed = 40f;
-
-
-    bool left;
-    bool right;
-    bool strong;
+    public float moveSpeed = 5f;
+    public float cameraSpeed = 90f;
+    public float damping = 10f;
 
     void Start()
     {
         animator = GetComponent<Animator>();
-        playerCamera = GetComponentInChildren<Camera>();
         controller = GetComponent<CharacterController>();
-
     }
 
     void Update()
@@ -38,7 +31,7 @@ public class SimplePlayer : MonoBehaviour
 
         UpdateMovement();
         UpdateRotation();
-        //UpdateCamera();
+        UpdateCamera();
 
         if (left == true)
         {
@@ -56,8 +49,6 @@ public class SimplePlayer : MonoBehaviour
     {
         animator.SetBool("Jab Left", true);
         Debug.Log("jab left");
-        animator.MatchTarget(punchTarget.position, punchTarget.rotation, AvatarTarget.LeftHand,
-                                                       new MatchTargetWeightMask(Vector3.one, 1f), 0.141f, 0.78f);
     }
 
     void JabRight()
@@ -71,7 +62,15 @@ public class SimplePlayer : MonoBehaviour
         float horizontalInput = Input.GetAxis("Horizontal");
         float verticalInput = Input.GetAxis("Vertical");
 
-        Vector3 vel = new Vector3(horizontalInput, 0, verticalInput) * moveSpeed * Time.deltaTime;
+        Vector3 forward = playerCamera.transform.forward;
+        Vector3 right = playerCamera.transform.right;
+
+        forward.y = 0f;
+        right.y = 0f;
+        forward.Normalize();
+        right.Normalize();
+
+        var desiredMoveDirection = (forward * verticalInput + right * horizontalInput) * moveSpeed * Time.deltaTime;
 
         if (controller.isGrounded)
         {
@@ -79,27 +78,25 @@ public class SimplePlayer : MonoBehaviour
         }
 
         verticalSpeed += (gravity * Time.deltaTime);
-        vel.y = verticalSpeed * Time.deltaTime;
+        desiredMoveDirection.y = verticalSpeed * Time.deltaTime;
 
-        controller.Move(vel);
+        controller.Move(desiredMoveDirection);
     }
 
     void UpdateRotation()
     {
-        float horizontalInput = Input.GetAxis("Mouse Y");
-
-        float verticalInput = Input.GetAxis("Mouse X");
-
-        transform.Rotate(new Vector3(horizontalInput * -1, verticalInput, 0) * rotateSpeed * Time.deltaTime);
+        var lookPos = punchTarget.position - transform.position;
+        lookPos.y = 0;
+        var rotation = Quaternion.LookRotation(lookPos);
+        transform.rotation = Quaternion.Slerp(transform.rotation, rotation, Time.deltaTime * damping);
     }
 
     void UpdateCamera()
     {
-        float horizontalInput = Input.GetAxis("Mouse Y");
-
-        float verticalInput = Input.GetAxis("Mouse X");
-
-        playerCamera.transform.Rotate(new Vector3(horizontalInput*-1, verticalInput, 0) * cameraSpeed * Time.deltaTime);
+        float rotateSpeed = Input.GetAxis("Horizontal") * cameraSpeed;
+        Debug.Log(rotateSpeed);
+        playerCamera.transform.LookAt(punchTarget);
+        playerCamera.transform.RotateAround(punchTarget.position, new Vector3(0, 1, 0), rotateSpeed * Time.deltaTime);
     }
 
 }
